@@ -584,15 +584,6 @@ def print_samples(data_, document_factory_, quantity=None):
             print(sample['collection_dict'])
 
 
-def export_types(data_):
-    types = []
-    for record in data_:
-        if record['label'] not in types:
-            types.append(record['label'])
-    with open('/home/danielbloor/types.txt', 'w') as file:
-        file.writelines(types)
-
-
 @click.command()
 @click.argument("--filepath")
 @click.option("-u", "--user_name", prompt="Monitoring device user's name",
@@ -640,13 +631,6 @@ def direct_main():
     MAX_SAMPLES = 1500
     SAMPLE_PERIOD = "1/min"
 
-    # Here for temporary testing
-    #world = owl.default_world
-    #_, filename = owl.tempfile.mkstemp()
-    # world.set_backend(filename=filename)
-    # owl.onto_path.append("/home/danielbloor/Projects/ontologies/monitoring_ontologies/HMO_0.7/")
-    #onto = world.get_ontology(COPH_IRI).load()
-
     filepath = f"{START_PATH}{FILE_NAME}"
     client = pm.MongoClient()
     db = client[DATABASE]
@@ -662,5 +646,4 @@ def direct_main():
 
 
 if __name__ == "__main__":
-    # pylint: disable=no-value-for-parameter
     direct_main()
