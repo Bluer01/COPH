@@ -14,3 +14,5 @@ A demonstration of the Personal Health Knowledge Graph featured in the paper is 
 The structure of this repository is as follows:
 - COPH.tar.xz: An archive of data relevant to the project, including the COPH ontology, examples of JSON exports of a user, their measurements, and mappings between the measurements and the ontological terms
 - code: contains files related to the code for the project, including the MongoDB upload tool and example code for the transformation layer
+
+Thank you
