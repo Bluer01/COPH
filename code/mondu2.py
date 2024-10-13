@@ -73,12 +73,31 @@ alert_node_strings = {
 
 @dataclass
 class Measurement:
+    """
+    Represents a single measurement.
+
+    :param timestamp: The time when the measurement was taken
+    :param value: The value of the measurement
+    :param risk_score: Optional risk score associated with the measurement
+    """
     timestamp: datetime
     value: float
     risk_score: Optional[int] = None
 
 @dataclass
 class Document:
+    """
+    Represents a document containing measurement data.
+
+    :param user_id: Identifier for the user
+    :param type: Type of the measurement
+    :param device_id: Identifier for the device
+    :param period: Sampling period
+    :param day: Date of the measurements
+    :param valueuom: Unit of measurement
+    :param measurements: List of measurements
+    :param summaries: Optional dictionary of summary data
+    """
     user_id: UserID
     type: str
     device_id: DeviceID
@@ -89,27 +108,68 @@ class Document:
     summaries: Dict[str, Any] = None
 
 def day_generator(start_date: datetime, end_date: datetime):
+    """
+    Generator function to yield days between two dates.
+
+    :param start_date: Start date
+    :param end_date: End date
+    :yield: Each day between start_date and end_date
+    """
     for date in range(int((end_date - start_date).days)):
         yield start_date + timedelta(date)
 
 def get_days(start_date: datetime, end_date: datetime) -> List[str]:
+    """
+    Get a list of days between two dates as strings.
+
+    :param start_date: Start date
+    :param end_date: End date
+    :return: List of days as strings in format 'YYYY-MM-DD'
+    """
     return [date.strftime("%Y-%m-%d") for date in day_generator(start_date, end_date)]
 
 class Metadata(me.Document):
+    """
+    Mongoengine document class for metadata.
+    """
     document_version = me.StringField(required=True)
     ontology_name = me.StringField(required=True)
     ontology_version = me.StringField(required=True)
     mappings = me.DictField(required=True)
 
 class DocumentFactory:
+    """
+    Factory class for creating measurement documents.
+    """
+
     def __init__(self, config: Dict[str, Any]):
+        """
+        Initialize the DocumentFactory.
+
+        :param config: Configuration dictionary
+        """
         self.config = config
 
     def create_samples(self, device_id: DeviceID, record_data: Dict[str, Any]) -> Document:
+        """
+        Create a Document object based on the device type and record data.
+
+        :param device_id: Identifier for the device
+        :param record_data: Dictionary containing the record data
+        :return: Document object
+        :raises ValueError: If an unsupported device type is provided
+        """
         samples_creator = self.get_document_creator(device_id)
         return samples_creator(record_data)
 
     def get_document_creator(self, device_id: DeviceID):
+        """
+        Get the appropriate document creator function for the given device ID.
+
+        :param device_id: Identifier for the device
+        :return: Function to create a document for the specified device
+        :raises ValueError: If an unsupported device type is provided
+        """
         creators = {
             self.config['devices']['move_ecg']: self._create_move_ecg,
             self.config['devices']['flow']: self._create_flow,
@@ -128,6 +188,12 @@ class DocumentFactory:
         return creator
 
     def _create_amazfit_bip(self, record_data: Dict[str, Any]) -> Document:
+        """
+        Create a Document for Amazfit Bip data.
+
+        :param record_data: Dictionary containing the record data
+        :return: Document object
+        """
         timestamp = datetime.fromtimestamp(int(record_data['TIMESTAMP']))
 
         measurements = [
@@ -148,6 +214,12 @@ class DocumentFactory:
         )
 
     def _create_flow(self, record_data: Dict[str, Any]) -> Document:
+        """
+        Create a Document for Flow air quality data.
+
+        :param record_data: Dictionary containing the record data
+        :return: Document object
+        """
         timestamp = datetime.strptime(record_data['date'], '%Y-%m-%d %H:%M:%S')
 
         measurements = [
@@ -172,6 +244,12 @@ class DocumentFactory:
         )
 
     def _create_move_ecg(self, record_data: Dict[str, Any]) -> Document:
+        """
+        Create a Document for Move ECG data.
+
+        :param record_data: Dictionary containing the record data
+        :return: Document object
+        """
         timestamp = datetime.fromisoformat(record_data['date'])
 
         measurements = [Measurement(timestamp=timestamp, value=record_data['signal'])]
@@ -187,6 +265,12 @@ class DocumentFactory:
         )
 
     def _create_mimic_chartevents(self, record_data: Dict[str, Any]) -> Document:
+        """
+        Create a Document for MIMIC-III chart events data.
+
+        :param record_data: Dictionary containing the record data
+        :return: Document object
+        """
         timestamp = datetime.fromisoformat(record_data['charttime'])
 
         measurements = [Measurement(timestamp=timestamp, value=record_data['value'])]
@@ -202,6 +286,12 @@ class DocumentFactory:
         )
 
     def _create_mimic_mortality(self, record_data: Dict[str, Any]) -> Document:
+        """
+        Create a Document for MIMIC-III mortality data.
+
+        :param record_data: Dictionary containing the record data
+        :return: Document object
+        """
         measurements = [Measurement(timestamp=datetime.now(), value=record_data['expire_flag'])]
 
         return Document(
@@ -215,6 +305,12 @@ class DocumentFactory:
         )
 
     def _create_mimic_diagnoses(self, record_data: Dict[str, Any]) -> Document:
+        """
+        Create a Document for MIMIC-III diagnoses data.
+
+        :param record_data: Dictionary containing the record data
+        :return: Document object
+        """
         measurements = [Measurement(
             timestamp=datetime.now(),
             value=f"{record_data['icd9_code']}:{record_data['title']}"
@@ -231,6 +327,12 @@ class DocumentFactory:
         )
 
     def _create_mimic_prescriptions(self, record_data: Dict[str, Any]) -> List[Document]:
+        """
+        Create a Document for MIMIC-III prescriptions data.
+
+        :param record_data: Dictionary containing the record data
+        :return: Document object
+        """
         documents = []
         
         try:
@@ -264,6 +366,12 @@ class DocumentFactory:
         return documents
 
     def _create_mimic_procedures(self, record_data: Dict[str, Any]) -> Document:
+        """
+        Create a Document for MIMIC-III procedures data.
+
+        :param record_data: Dictionary containing the record data
+        :return: Document object
+        """
         measurements = [Measurement(
             timestamp=datetime.now(),
             value=f"{record_data['icd9_code']}:{record_data['description']}"
@@ -280,6 +388,12 @@ class DocumentFactory:
         )
 
     def _create_mimic_sepsis(self, record_data: Dict[str, Any]) -> Document:
+        """
+        Create a Document for MIMIC-III sepsis data.
+
+        :param record_data: Dictionary containing the record data
+        :return: Document object
+        """
         measurements = [Measurement(timestamp=datetime.now(), value=json.dumps(record_data))]
 
         return Document(
@@ -293,6 +407,12 @@ class DocumentFactory:
         )
 
     def _create_mimic_admission(self, record_data: Dict[str, Any]) -> Document:
+        """
+        Create a Document for MIMIC-III admission data.
+
+        :param record_data: Dictionary containing the record data
+        :return: Document object
+        """
         measurements = [Measurement(
             timestamp=datetime.fromisoformat(record_data['admittime']),
             value=json.dumps({
@@ -319,6 +439,15 @@ class DocumentFactory:
 
     def create_mappings(self, device_id: DeviceID, record_data: Dict[str, Any], 
                         database: pm.database.Database, ontology: owl.Ontology) -> Dict[str, Any]:
+        """
+        Create mappings for the given device and record data.
+
+        :param device_id: Identifier for the device
+        :param record_data: Dictionary containing the record data
+        :param database: MongoDB database object
+        :param ontology: Owlready2 ontology object
+        :return: Dictionary of created mappings
+        """
         mapping_fields = self._ask_mongodb_mappings(record_data)
         mappings = {}
         
@@ -363,6 +492,12 @@ class DocumentFactory:
         return mappings
 
     def _ask_mongodb_mappings(self, record_data: Dict[str, Any]) -> List[str]:
+        """
+        Ask user for MongoDB mappings based on record data.
+
+        :param record_data: Dictionary containing the record data
+        :return: List of selected field names for mapping
+        """
         fields_list = list(record_data[0].keys())[1:]
         print("\nFields found in data: ")
         for num, field in enumerate(fields_list):
@@ -375,6 +510,13 @@ class DocumentFactory:
         return [fields_list[num] for num in answer_numbers]
 
     def _search_coph_ontology(self, onto_fields: List[str], ontology: owl.Ontology) -> Dict[str, Any]:
+        """
+        Search COPH ontology for suitable terms.
+
+        :param onto_fields: List of fields to search for
+        :param ontology: Owlready2 ontology object
+        :return: Dictionary of new mappings
+        """
         new_mappings = {}
         for field in onto_fields:
             query = input(f"Type an alternative term to search for {field}, or leave blank to use field name: ") or field
@@ -395,6 +537,13 @@ class DocumentFactory:
         return new_mappings
 
     def _search_ols(self, onto_fields: List[str], ontology: owl.Ontology) -> Dict[str, Any]:
+        """
+        Search OLS (Ontology Lookup Service) for suitable terms.
+
+        :param onto_fields: List of fields to search for
+        :param ontology: Owlready2 ontology object
+        :return: Dictionary of new mappings
+        """
         new_mappings = {}
         for field in onto_fields:
             new_mapping = self.ols_search(field=field, ontology=ontology)
@@ -402,6 +551,12 @@ class DocumentFactory:
         return new_mappings
 
     def _manual_mapping(self, fields: Union[List[str], str]) -> Dict[str, str]:
+        """
+        Prompt user for manual mapping of fields.
+
+        :param fields: List of fields or single field to map
+        :return: Dictionary of new mappings
+        """
         if isinstance(fields, str):
             fields = [fields]
         
@@ -417,6 +572,14 @@ class DocumentFactory:
         return new_mappings
 
     def ols_search(self, field: str, ontology: owl.Ontology) -> Dict[str, str]:
+        """
+        Perform an OLS search for a given field.
+
+        :param field: Field to search for
+        :param ontology: Owlready2 ontology object
+        :return: Dictionary containing the mapping for the field
+        :raises requests.RequestException: If the OLS search request fails
+        """
         print("\nField: "+field)
         query = input("Type an alternative term to search for, or leave blank to use field name: ") or field
         
@@ -465,6 +628,13 @@ class DocumentFactory:
 
 
 def parse_file(file_path: str) -> List[Dict[str, Any]]:
+    """
+    Parse a CSV or JSON file and return its contents as a list of dictionaries.
+
+    :param file_path: Path to the file to be parsed
+    :return: List of dictionaries containing the file data
+    :raises ValueError: If an unsupported file format is provided
+    """
     file_data = []
     file_format = file_path.lower().rpartition('.')[-1]
     
@@ -482,6 +652,14 @@ def parse_file(file_path: str) -> List[Dict[str, Any]]:
     return file_data
 
 def prepare_samples(data: List[Dict[str, Any]], document_factory: DocumentFactory, config: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """
+    Prepare samples for MongoDB insertion based on input data.
+
+    :param data: List of dictionaries containing the input data
+    :param document_factory: DocumentFactory object
+    :param config: Configuration dictionary
+    :return: List of prepared samples for MongoDB insertion
+    """
     prepared_samples = []
     
     if config['DEVICE'] == "mimic_prescriptions":
@@ -554,6 +732,13 @@ def prepare_samples(data: List[Dict[str, Any]], document_factory: DocumentFactor
     return prepared_samples
 
 def upload_samples(data: List[Dict[str, Any]], document_factory: DocumentFactory, config: Dict[str, Any]):
+    """
+    Upload prepared samples to MongoDB.
+
+    :param data: List of dictionaries containing the input data
+    :param document_factory: DocumentFactory object
+    :param config: Configuration dictionary
+    """
     samples = prepare_samples(data, document_factory, config)
     for sample in tqdm(samples):
         try:
@@ -566,6 +751,14 @@ def upload_samples(data: List[Dict[str, Any]], document_factory: DocumentFactory
             logger.error(f"Error uploading sample: {e}")
 
 def print_samples(data: List[Dict[str, Any]], document_factory: DocumentFactory, config: Dict[str, Any], quantity: Optional[int] = None):
+    """
+    Print prepared samples.
+
+    :param data: List of dictionaries containing the input data
+    :param document_factory: DocumentFactory object
+    :param config: Configuration dictionary
+    :param quantity: Optional number of samples to print
+    """
     samples = prepare_samples(data, document_factory, config)
     for sample in tqdm(samples[:quantity] if quantity else samples):
         print(sample['sample_dict'])
@@ -581,7 +774,17 @@ def print_samples(data: List[Dict[str, Any]], document_factory: DocumentFactory,
 @click.option("-c", "--collection", help="Collection to upload to.", default='measurements')
 def main(filepath: str, username: str, device: str, sample_period: str,
          max_samples: int, database: str, collection: str):
-    
+    """
+    Main function to process and upload data.
+
+    :param filepath: Path to the input file
+    :param username: Name of the monitoring device user
+    :param device: Name of the monitoring device
+    :param sample_period: Interval of the sample period
+    :param max_samples: Maximum number of samples per document
+    :param database: Name of the database to upload to
+    :param collection: Name of the collection to upload to
+    """    
     # Load configuration
     with open('config.json', 'r') as config_file:
         config = json.load(config_file)
@@ -629,6 +832,12 @@ def main(filepath: str, username: str, device: str, sample_period: str,
         os.unlink(temp_file.name)
 
 def upload_mappings(mappings: Dict[str, Any], config: Dict[str, Any]):
+    """
+    Upload mappings to MongoDB.
+
+    :param mappings: Dictionary of mappings to upload
+    :param config: Configuration dictionary
+    """
     try:
         # Connect to the database
         client = pm.MongoClient()
